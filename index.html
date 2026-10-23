@@ -1,0 +1,652 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CVX 能源因子看板</title>
+<style>
+:root{
+  --font-anthropic-sans: "Inter", "PingFang SC", "Noto Sans SC", system-ui, -apple-system, sans-serif;
+  --font-anthropic-serif: "Source Serif 4", "Songti SC", "Noto Serif SC", Georgia, serif;
+  --color-bg:#FAF9F6; --color-fg:#1A1A19; --color-fg-muted:#5E5D59;
+  --color-panel:#FFFFFF; --color-border-line:#E3E1DA;
+  --color-ok:#1F7A4D; --color-warn:#9A6A00; --color-bad:#B3412C;
+  --cds-gap-xs:4px; --cds-gap-sm:8px; --cds-gap-md:16px; --cds-gap-lg:24px; --cds-gap-xl:36px;
+  --cds-pad-xs:4px; --cds-pad-sm:8px; --cds-pad-md:14px; --cds-pad-lg:20px; --cds-pad-xl:28px;
+  --cds-radius:10px;
+  --cds-font-size-caption:12.5px; --cds-font-size-body:14.5px; --cds-font-size-heading:16px; --cds-font-size-title:30px;
+  --cds-font-weight-medium:600;
+  --cds-chart-grid:#ECEAE4; --cds-chart-axis:#B9B6AD; --cds-chart-reference:#8C8A83; --cds-chart-muted:#C4C1B8;
+  --cds-surface-popover:#FFFFFF; --cds-border:#DDDAD2; --cds-shadow-popover:0 4px 16px rgba(0,0,0,.10);
+  --cds-text-secondary:#6B6A65; --cds-dur-slow:300ms;
+  --dash-gutter:clamp(16px,4vw,48px);
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --color-bg:#141413; --color-fg:#EDEBE5; --color-fg-muted:#A8A69F;
+    --color-panel:#1E1E1C; --color-border-line:#33322F;
+    --color-ok:#5FC48E; --color-warn:#E0B44A; --color-bad:#EE8167;
+    --cds-chart-grid:#2A2A27; --cds-chart-axis:#55534E; --cds-chart-reference:#8F8D86; --cds-chart-muted:#5A5853;
+    --cds-surface-popover:#252523; --cds-border:#3A3936; --cds-shadow-popover:0 4px 16px rgba(0,0,0,.45);
+    --cds-text-secondary:#A8A69F;
+  }
+}
+html,body{margin:0;background:var(--color-bg);color:var(--color-fg)}
+#dash-root{padding:var(--dash-gutter);max-width:1280px;margin-inline:auto;box-sizing:border-box}
+.dash-skeleton{position:relative;color:transparent!important}
+.dash-skeleton:empty,.dash-skeleton{background:linear-gradient(90deg,var(--color-border-line),var(--color-panel),var(--color-border-line));background-size:200% 100%;border-radius:6px;min-height:1em}
+</style>
+</head>
+<body>
+<div id="dash-root">
+<style>
+.cx{font-family:var(--font-anthropic-sans);display:flex;flex-direction:column;gap:var(--cds-gap-xl)}
+.cx-head{display:flex;flex-direction:column;gap:var(--cds-gap-sm)}
+.cx-title{font-family:var(--font-anthropic-serif);font-weight:400;font-size:var(--cds-font-size-title);margin:0}
+.cx-take{font-size:var(--cds-font-size-body);line-height:1.65;margin:0;max-width:60rem;min-height:1.65em}
+.cx .cx-take b{font-weight:600;font-variant-numeric:tabular-nums}
+.cx-sub{font-size:var(--cds-font-size-caption);color:var(--color-fg-muted);margin:0;min-height:1.4em}
+.cx-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,9.5rem),1fr));gap:var(--cds-gap-md)}
+.cx-tile{background:var(--color-panel);border:1px solid var(--color-border-line);border-radius:var(--cds-radius);padding:var(--cds-pad-md);display:flex;flex-direction:column;gap:var(--cds-gap-xs);min-height:6.5rem}
+.cx-tile.is-main{border-color:var(--color-fg-muted)}
+.cx-lab{font-size:var(--cds-font-size-caption);color:var(--color-fg-muted)}
+.cx-big{font-family:var(--font-anthropic-serif);font-weight:400;font-size:var(--cds-font-size-title);font-variant-numeric:tabular-nums;line-height:1.15;min-height:1.15em}
+.cx-chg{font-size:var(--cds-font-size-caption);font-variant-numeric:tabular-nums}
+.cx-up{color:var(--color-ok)}
+.cx-down{color:var(--color-bad)}
+.cx-sec{display:flex;flex-direction:column;gap:var(--cds-gap-md)}
+.cx-sec h2{font-size:var(--cds-font-size-heading);font-weight:var(--cds-font-weight-medium);margin:0}
+.cx-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,22rem),1fr));gap:var(--cds-gap-md)}
+.cx-card{background:var(--color-panel);border:1px solid var(--color-border-line);border-radius:var(--cds-radius);padding:var(--cds-pad-lg);display:flex;flex-direction:column;gap:var(--cds-gap-sm);min-width:0}
+.cx-card h3{font-size:var(--cds-font-size-heading);font-weight:var(--cds-font-weight-medium);margin:0}
+.cx-note{font-size:var(--cds-font-size-caption);color:var(--color-fg-muted);margin:0;line-height:1.5}
+.cx .cx-note b{font-weight:600;color:var(--color-fg)}
+.cx-chart{position:relative}
+.cx-chart svg{display:block}
+.cx-tick{font-size:var(--cds-font-size-caption);fill:var(--color-fg-muted)}
+.cx-lbl{font-size:var(--cds-font-size-caption);fill:var(--color-fg)}
+.cx-scroll{overflow-x:auto}
+.cx-tbl{width:100%;border-collapse:collapse;font-size:var(--cds-font-size-body)}
+.cx-tbl th{text-align:left;font-weight:var(--cds-font-weight-medium);color:var(--color-fg-muted);font-size:var(--cds-font-size-caption);padding:var(--cds-pad-xs) var(--cds-pad-sm);border-bottom:1px solid var(--color-border-line);white-space:nowrap}
+.cx-tbl td{padding:var(--cds-pad-sm);border-bottom:1px solid var(--color-border-line);vertical-align:top;font-variant-numeric:tabular-nums;line-height:1.5}
+.cx-tbl td.num{text-align:right;white-space:nowrap}
+.cx-tbl th.num{text-align:right}
+.cx-tbl td.key{font-weight:var(--cds-font-weight-medium);white-space:nowrap}
+.cx-tip{position:absolute;pointer-events:none;opacity:0;background:var(--cds-surface-popover);border:1px solid var(--cds-border);border-radius:var(--cds-radius);box-shadow:var(--cds-shadow-popover);padding:var(--cds-pad-xs) var(--cds-pad-sm);font-size:var(--cds-font-size-caption);white-space:nowrap;z-index:2;line-height:1.5}
+.cx-tip .t{color:var(--cds-text-secondary)}
+.cx-fail{display:flex;align-items:center;justify-content:center;gap:var(--cds-gap-xs);min-height:inherit;color:var(--color-fg-muted);font-size:var(--cds-font-size-caption)}
+.cx-dot{width:.375rem;height:.375rem;border-radius:50%;background:var(--color-bad);display:inline-block}
+.cx-scen{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,13rem),1fr));gap:var(--cds-gap-sm)}
+.cx-scen div{font-size:var(--cds-font-size-caption);line-height:1.55;color:var(--color-fg-muted)}
+.cx .cx-scen b{color:var(--color-fg);font-weight:600}
+.cx-pill{display:inline-block;font-size:var(--cds-font-size-caption);padding:2px 8px;border-radius:999px;border:1px solid var(--color-border-line);white-space:nowrap}
+.cx [data-dash-source-state=empty]{color:transparent}
+.cx [data-dash-source-state=refreshing]{opacity:.5;transition:opacity var(--cds-dur-slow)}
+</style>
+
+<div class="cx">
+  <header class="cx-head" id="top">
+    <h1 class="cx-title" id="cx-h">CVX 能源因子看板</h1>
+    <p class="cx-take dash-skeleton" id="cx-take"></p>
+    <p class="cx-sub" id="cx-asof"></p>
+  </header>
+
+  <div class="cx-kpis" id="cx-kpis"></div>
+
+  <section class="cx-sec" id="factors">
+    <h2>因子信号</h2>
+    <div class="cx-card">
+      <p class="cx-note">每个因子用最新一期数据给出读数；"远月跟涨"和"较上期"类判断需要至少两天的记录。</p>
+      <div class="cx-scroll">
+        <table class="cx-tbl" id="cx-sig" data-source="signals" data-row-key="factor">
+          <thead><tr><th data-field="factor">因子</th><th data-field="metric">指标</th><th class="num" data-field="value">读数</th><th data-field="unit">单位</th><th data-field="read">解读</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="cx-sec" id="supply">
+    <h2>油价与供应</h2>
+    <div class="cx-grid">
+      <div class="cx-card">
+        <h3 id="curve-h">期货曲线</h3>
+        <p class="cx-note">最新一期各交割月报价；有前一期时以虚线叠加，看远月是否跟涨。</p>
+        <div class="cx-chart" id="cx-curve" data-source="curve" style="min-height:240px"></div>
+      </div>
+      <div class="cx-card">
+        <h3 id="hormuz-h">霍尔木兹运输量</h3>
+        <p class="cx-note">单位万桶/日（Kpler）。当前约为战前的 <b id="cx-share">—</b>%，但绕行管道会让有效出口降幅小于通航降幅。</p>
+        <div class="cx-chart" id="cx-hormuz" data-source="daily" style="min-height:92px"></div>
+        <h3 id="inv-h" style="margin-top:var(--cds-gap-sm)">EIA 美国库存周变化</h3>
+        <p class="cx-note" id="cx-inv-note">商业原油、汽油、馏分油，单位万桶。</p>
+        <div class="cx-chart" id="cx-inv" data-source="daily" style="min-height:126px"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="cx-sec" id="stocks">
+    <h2>股价是否确认油价</h2>
+    <div class="cx-grid">
+      <div class="cx-card">
+        <h3 id="peers-h">能源股日涨跌</h3>
+        <p class="cx-note">按业务分组的前一交易日收盘涨跌，看油价上涨是否传导到各环节。</p>
+        <div class="cx-chart" id="cx-peers" data-source="peers" style="min-height:398px"></div>
+      </div>
+      <div class="cx-card">
+        <h3 id="idx-h">Brent、CVX、XLE 相对走势</h3>
+        <p class="cx-note">以第一条记录为 100。Brent 为报告日盘前价，CVX 与 XLE 为前一交易日收盘。</p>
+        <div class="cx-chart" id="cx-idx" data-source="indexed" style="min-height:240px"></div>
+        <p class="cx-note" id="cx-idx-note"></p>
+      </div>
+    </div>
+  </section>
+
+  <section class="cx-sec" id="valuation">
+    <h2>CVX 估值与情景</h2>
+    <div class="cx-grid">
+      <div class="cx-card">
+        <h3 id="tg-h">分析师目标价 vs 前收</h3>
+        <p class="cx-note">空心点为调整前目标价。各平台共识价差异较大，不作为短期合理价值。</p>
+        <div class="cx-chart" id="cx-tg" data-source="targets daily" style="min-height:152px"></div>
+      </div>
+      <div class="cx-card">
+        <h3 id="sc-h">1–3 个月情景（Brent 区间）</h3>
+        <p class="cx-note">敏感性测试，不是概率预测或目标价；竖线为最新 Brent。</p>
+        <div class="cx-chart" id="cx-sc" data-source="scenarios daily" style="min-height:170px"></div>
+        <div class="cx-scen" id="cx-scen-txt" data-source="scenarios"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="cx-sec" id="calls">
+    <h2>条件式判断</h2>
+    <div class="cx-card">
+      <div class="cx-scroll">
+        <table class="cx-tbl" id="cx-calls" data-source="calls" data-row-key="tickers">
+          <thead><tr><th data-field="tickers">标的</th><th data-field="call">判断</th><th data-field="condition">条件</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <p class="cx-note">研究性条件判断，不是交易指令或投资建议。</p>
+    </div>
+  </section>
+
+  <p class="cx-note">数据来自每日盘前报告（Reuters、WSJ/Kpler、OilPrice.com、EIA、MarketWatch、Benzinga），每天手动追加一期。原油为盘前期货报价，股票与 ETF 为前一交易日收盘，二者不是同一时点。</p>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script src="data/daily.js"></script>
+<script src="data/curve.js"></script>
+<script src="data/peers.js"></script>
+<script src="data/targets.js"></script>
+<script src="data/scenarios.js"></script>
+<script src="data/calls.js"></script>
+<script src="lib/dash-shim.js"></script>
+<script>
+dash.calc('signals', {
+  inputs: ['daily'],
+  title: '每日因子信号',
+  description: '用最新一期（以及前一期，如有）的报告数据计算五个因子的读数与解读。',
+  fn: (daily) => {
+    const r = daily.slice().sort((a, b) => String(a.date) < String(b.date) ? -1 : String(a.date) > String(b.date) ? 1 : 0);
+    if (!r.length) return [];
+    const t = r[r.length - 1];
+    const p = r.length > 1 ? r[r.length - 2] : null;
+    const n = (x) => (x === null || x === undefined || x === '') ? null : Number(x);
+    const rows = [];
+    const curve = n(t.brent) - n(t.brent_mar27);
+    rows.push({factor: '曲线结构', metric: 'Brent 近月 − 2027年3月合约', value: +curve.toFixed(2), unit: '$/桶', read: curve > 0 ? 'Backwardation：近期供应偏紧' : 'Contango：近期供应宽松'});
+    let farRead = '需要至少两期数据';
+    let far = null;
+    if (p) {
+      far = +(n(t.brent_mar27) - n(p.brent_mar27)).toFixed(2);
+      const near = n(t.brent) - n(p.brent);
+      if (near > 0 && far > 0) farRead = far >= near * 0.5 ? '远月跟涨：市场视冲击为更持久' : '涨幅集中在近月：偏短期风险溢价';
+      else if (far > 0) farRead = '远月上调';
+      else if (near > 0) farRead = '只有近月上涨：远月未确认';
+      else farRead = '近月、远月均未上涨';
+    }
+    rows.push({factor: '远月跟涨', metric: '2027年3月 Brent 较上期变化', value: far, unit: '$/桶', read: farRead});
+    const share = n(t.hormuz) / n(t.hormuz_prewar);
+    let supRead = '低于战前约 ' + Math.round((1 - share) * 100) + '%';
+    if (p) supRead += n(t.hormuz) < n(p.hormuz) ? '，较上期恶化' : n(t.hormuz) > n(p.hormuz) ? '，较上期改善' : '，与上期持平';
+    rows.push({factor: '有效供应', metric: '霍尔木兹运输量 / 战前', value: +(share * 100).toFixed(1), unit: '%', read: supRead});
+    const inv = n(t.crude_inv_chg);
+    rows.push({factor: '美国库存', metric: '商业原油周变化', value: inv, unit: '百万桶', read: inv < 0 ? '去库存：支持近期偏紧' : '累库存：偏宽松'});
+    const rel = +(n(t.cvx_chg) - n(t.xle_chg)).toFixed(2);
+    rows.push({factor: '股价确认', metric: 'CVX − XLE 日涨跌', value: rel, unit: '百分点', read: rel > 0 ? 'CVX 跑赢能源板块' : rel < 0 ? 'CVX 跑输能源板块' : '与板块持平'});
+    return rows;
+  }
+});
+
+dash.calc('indexed', {
+  inputs: ['daily'],
+  title: 'Brent / CVX / XLE 指数化',
+  description: '以第一条记录为 100，比较 Brent、CVX 与 XLE 的相对走势。',
+  fn: (daily) => {
+    const r = daily.slice().sort((a, b) => String(a.date) < String(b.date) ? -1 : String(a.date) > String(b.date) ? 1 : 0);
+    if (!r.length) return [];
+    const b0 = Number(r[0].brent), c0 = Number(r[0].cvx_close), x0 = Number(r[0].xle_close);
+    return r.map((d) => ({
+      date: String(d.date).slice(0, 10),
+      brent: +(100 * Number(d.brent) / b0).toFixed(2),
+      cvx: +(100 * Number(d.cvx_close) / c0).toFixed(2),
+      xle: +(100 * Number(d.xle_close) / x0).toFixed(2)
+    }));
+  }
+});
+
+(function () {
+  const num = (v) => (v === null || v === undefined || v === '' || isNaN(Number(v))) ? null : Number(v);
+  const f2 = d3.format(',.2f');
+  const money = (v) => v == null ? '—' : '$' + f2(v);
+  const signed = (v, d = 2) => v == null ? '—' : (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(d);
+  const pct = (v) => v == null ? '—' : signed(v) + '%';
+  const cls = (v) => v == null ? '' : v > 0 ? 'cx-up' : v < 0 ? 'cx-down' : '';
+  const md = (s) => { const d = new Date(String(s).slice(0, 10)); return isNaN(d) ? '—' : d3.utcFormat('%-m/%-d')(d); };
+  const sortD = (r) => r.slice().sort((a, b) => String(a.date) < String(b.date) ? -1 : String(a.date) > String(b.date) ? 1 : 0);
+  const bad = (st) => st === 'error' || st === 'connect' || st === 'declined' || st === 'missing';
+
+  function failBox(el) {
+    const f = document.createElement('div'); f.className = 'cx-fail';
+    const dot = document.createElement('span'); dot.className = 'cx-dot';
+    f.appendChild(dot); f.appendChild(document.createTextNode('Failed to load'));
+    el.appendChild(f);
+  }
+  function prep(el, ids) {
+    const ds = ids.map((id) => dash.data(id));
+    el.innerHTML = '';
+    if (ds.some((d) => bad(d.status))) { el.classList.remove('dash-skeleton'); failBox(el); return null; }
+    if (ds.some((d) => d.status !== 'ok')) { el.classList.add('dash-skeleton'); return null; }
+    el.classList.remove('dash-skeleton');
+    return ds.map((d) => d.data || []);
+  }
+  function tip(el) {
+    const t = document.createElement('div'); t.className = 'cx-tip'; el.appendChild(t);
+    return {
+      show(title, lines, x, y) {
+        t.textContent = '';
+        const h = document.createElement('div'); h.className = 't'; h.textContent = title; t.appendChild(h);
+        lines.forEach(([c, name, val]) => {
+          const r = document.createElement('div');
+          if (c) { const s = document.createElement('span'); s.style.cssText = 'display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px;background:' + c; r.appendChild(s); }
+          r.appendChild(document.createTextNode(name + '  ' + val));
+          t.appendChild(r);
+        });
+        t.style.opacity = 1;
+        const bw = el.clientWidth, tw = t.offsetWidth;
+        let left = x + 12; if (left + tw > bw) left = x - tw - 12; if (left < 0) left = 0;
+        t.style.left = left + 'px'; t.style.top = Math.max(0, y - 10) + 'px';
+      },
+      hide() { t.style.opacity = 0; }
+    };
+  }
+  function svgIn(el, H) {
+    const W = Math.max(280, el.clientWidth);
+    const svg = d3.select(el).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img');
+    return { svg, W, H };
+  }
+  function textW(svg, s, c = 'cx-tick') {
+    const t = svg.append('text').attr('class', c).text(s);
+    const w = t.node().getComputedTextLength(); t.remove(); return w;
+  }
+  function spread(items, minGap, lo, hi) {
+    items.sort((a, b) => a.y - b.y);
+    for (let i = 1; i < items.length; i++) if (items[i].y - items[i - 1].y < minGap) items[i].y = items[i - 1].y + minGap;
+    const over = items.length ? items[items.length - 1].y - hi : 0;
+    if (over > 0) items.forEach((it) => { it.y -= over; });
+    items.forEach((it) => { it.y = Math.max(lo, it.y); });
+    return items;
+  }
+
+  /* ---------- header ---------- */
+  function header() {
+    const el = document.getElementById('cx-take');
+    const asof = document.getElementById('cx-asof');
+    const d = dash.data('daily');
+    el.textContent = ''; asof.textContent = '';
+    if (bad(d.status)) { el.classList.remove('dash-skeleton'); failBox(el); return; }
+    if (d.status !== 'ok' || !d.data.length) { el.classList.add('dash-skeleton'); return; }
+    el.classList.remove('dash-skeleton');
+    const t = sortD(d.data).at(-1);
+    const w = 'date=' + encodeURIComponent(String(t.date));
+    const mark = (f, txt) => { const b = document.createElement('b'); b.setAttribute('data-source', 'daily'); b.setAttribute('data-field', f); b.setAttribute('data-where', w); b.textContent = txt; return b; };
+    const bc = num(t.brent_chg), cc = num(t.cvx_chg);
+    let verdict = '油价与 CVX 同步走弱。';
+    if (bc > 0 && !(cc > 0)) verdict = '油价在涨，CVX 没有跟上：市场仍在区分风险溢价与真实盈利。';
+    else if (bc > 0 && cc > 0) verdict = '油价与 CVX 同向上涨。';
+    else if (!(bc > 0) && cc >= 0) verdict = 'CVX 在油价走弱时守住了。';
+    el.append('Brent ', mark('brent', money(num(t.brent))), '（', mark('brent_chg', pct(bc)), '），CVX 前收 ', mark('cvx_close', money(num(t.cvx_close))), '（', mark('cvx_chg', pct(cc)), '）。', verdict, ' 下一个催化剂：', mark('next_catalyst', md(t.next_catalyst)), ' Q3 财报。');
+    const m2 = (f, txt) => { const s = document.createElement('span'); s.setAttribute('data-source', 'daily'); s.setAttribute('data-field', f); s.setAttribute('data-where', w); s.textContent = txt; return s; };
+    asof.append('报告日 ', m2('date', md(t.date)), ' · 原油为盘前期货 · 股票为 ', m2('close_date', md(t.close_date)), ' 收盘 · 已记录 ' + d.data.length + ' 期');
+  }
+
+  /* ---------- KPI tiles ---------- */
+  const tiles = [
+    { lab: 'CVX 前收', f: 'cvx_close', c: 'cvx_chg', fmt: money, main: true },
+    { lab: 'Brent 近月期货', f: 'brent', c: 'brent_chg', fmt: money },
+    { lab: 'WTI 近月期货', f: 'wti', c: 'wti_chg', fmt: money },
+    { lab: 'Brent − WTI', f: 'brent_wti', fmt: money, note: '国际原油溢价' },
+    { lab: 'XLE 前收', f: 'xle_close', c: 'xle_chg', fmt: money },
+    { lab: 'S&P 500 期货', f: 'spx_fut', c: 'spx_fut_chg', fmt: (v) => v == null ? '—' : d3.format(',')(v) }
+  ];
+  function kpis() {
+    const el = document.getElementById('cx-kpis');
+    const d = dash.data('daily');
+    el.textContent = '';
+    const ok = d.status === 'ok' && d.data.length;
+    const t = ok ? sortD(d.data).at(-1) : null;
+    const w = t ? 'date=' + encodeURIComponent(String(t.date)) : '';
+    tiles.forEach((cfg) => {
+      const tile = document.createElement('div'); tile.className = 'cx-tile' + (cfg.main ? ' is-main' : '');
+      const lab = document.createElement('div'); lab.className = 'cx-lab'; lab.textContent = cfg.lab; tile.appendChild(lab);
+      const big = document.createElement('div'); big.className = 'cx-big';
+      if (ok) { big.setAttribute('data-source', 'daily'); big.setAttribute('data-field', cfg.f); big.setAttribute('data-where', w); big.textContent = cfg.fmt(num(t[cfg.f])); }
+      else if (bad(d.status)) { big.textContent = '—'; }
+      else { big.classList.add('dash-skeleton'); }
+      tile.appendChild(big);
+      const sub = document.createElement('div'); sub.className = 'cx-chg';
+      if (ok && cfg.c) {
+        const v = num(t[cfg.c]);
+        sub.className = 'cx-chg ' + cls(v);
+        sub.setAttribute('data-source', 'daily'); sub.setAttribute('data-field', cfg.c); sub.setAttribute('data-where', w);
+        sub.textContent = pct(v);
+      } else if (cfg.note) { sub.className = 'cx-chg cx-lab'; sub.textContent = cfg.note; }
+      tile.appendChild(sub);
+      el.appendChild(tile);
+    });
+  }
+
+  /* ---------- tables ---------- */
+  function table(id, ds, cols, fmts, numCols) {
+    const tbl = document.getElementById(id); const tb = tbl.tBodies[0];
+    const d = dash.data(ds);
+    tb.textContent = '';
+    if (d.status !== 'ok') {
+      const tr = tb.insertRow(); const td = tr.insertCell(); td.colSpan = cols.length;
+      td.style.height = '3rem';
+      if (bad(d.status)) failBox(td); else td.classList.add('dash-skeleton');
+      return;
+    }
+    (d.data || []).forEach((r) => {
+      const tr = tb.insertRow();
+      cols.forEach((c, i) => {
+        const td = tr.insertCell();
+        if (i === 0) td.className = 'key';
+        if (numCols && numCols.includes(c)) td.className = 'num';
+        const v = r[c];
+        if (fmts[c]) fmts[c](td, v, r);
+        else td.textContent = v == null ? '—' : String(v);
+      });
+    });
+  }
+
+  /* ---------- futures curve ---------- */
+  function curve() {
+    const el = document.getElementById('cx-curve');
+    const got = prep(el, ['curve']); if (!got) return;
+    const rows = got[0].map((r) => ({ date: String(r.date).slice(0, 10), contract: String(r.contract), brent: num(r.brent), wti: num(r.wti) }));
+    if (!rows.length) return;
+    const dates = [...new Set(rows.map((r) => r.date))].sort();
+    const last = dates.at(-1), prev = dates.length > 1 ? dates.at(-2) : null;
+    const contracts = [...new Set(rows.filter((r) => r.date === last).map((r) => r.contract))].sort();
+    const pick = (dt) => contracts.map((c) => rows.find((r) => r.date === dt && r.contract === c) || { contract: c, brent: null, wti: null });
+    const cur = pick(last), old = prev ? pick(prev) : [];
+    const ser = [{ k: 'brent', name: 'Brent', c: dash.colors[0] }, { k: 'wti', name: 'WTI', c: dash.colors[1] }];
+    const { svg, W, H } = svgIn(el, 240);
+    const vals = [...cur, ...old].flatMap((r) => [r.brent, r.wti]).filter((v) => v != null);
+    const y = d3.scaleLinear([d3.min(vals) - 2, d3.max(vals) + 2], [H - 30, 14]).nice();
+    const yt = y.ticks(5);
+    const ml = d3.max(yt, (v) => textW(svg, '$' + v)) + 10;
+    const ends = ser.map((s) => s.name + ' ' + money(cur.at(-1)[s.k]));
+    const mr = d3.max(ends, (s) => textW(svg, s, 'cx-lbl')) + 14;
+    const x = d3.scalePoint(contracts, [ml + 8, W - mr]);
+    const lab = (c, i) => { const [yy, mm] = c.split('-'); return (i === 0 || mm === '01' ? yy.slice(2) + '年' : '') + (+mm) + '月'; };
+    svg.append('g').selectAll('line').data(yt).join('line').attr('x1', ml).attr('x2', W - mr + 6).attr('y1', (v) => y(v)).attr('y2', (v) => y(v)).attr('stroke', 'var(--cds-chart-grid)');
+    svg.append('g').selectAll('text').data(yt).join('text').attr('class', 'cx-tick').attr('x', ml - 8).attr('y', (v) => y(v)).attr('dy', '0.32em').attr('text-anchor', 'end').text((v) => '$' + v);
+    svg.append('g').selectAll('text').data(contracts).join('text').attr('class', 'cx-tick').attr('x', (c) => x(c)).attr('y', H - 8).attr('text-anchor', 'middle').text((c, i) => lab(c, i));
+    const line = (k) => d3.line().defined((r) => r[k] != null).x((r) => x(r.contract)).y((r) => y(r[k]));
+    ser.forEach((s) => {
+      if (old.length) svg.append('path').datum(old).attr('d', line(s.k)).attr('fill', 'none').attr('stroke', s.c).attr('stroke-opacity', 0.45).attr('stroke-width', 2).attr('stroke-dasharray', '4 4');
+      svg.append('path').datum(cur).attr('d', line(s.k)).attr('fill', 'none').attr('stroke', s.c).attr('stroke-width', 2).attr('stroke-linecap', 'round').attr('stroke-linejoin', 'round');
+      svg.append('g').selectAll('circle').data(cur.filter((r) => r[s.k] != null)).join('circle').attr('cx', (r) => x(r.contract)).attr('cy', (r) => y(r[s.k])).attr('r', 3.5).attr('fill', s.c);
+    });
+    const lbls = spread(ser.map((s, i) => ({ y: y(cur.at(-1)[s.k]), text: ends[i], c: s.c })), 15, 10, H - 34);
+    svg.append('g').selectAll('text').data(lbls).join('text').attr('class', 'cx-lbl').attr('x', x(contracts.at(-1)) + 8).attr('y', (d) => d.y).attr('dy', '0.32em').attr('fill', (d) => d.c).text((d) => d.text);
+    const tp = tip(el);
+    const step = contracts.length > 1 ? x(contracts[1]) - x(contracts[0]) : 60;
+    svg.append('g').selectAll('rect').data(cur).join('rect')
+      .attr('x', (r) => x(r.contract) - step / 2).attr('width', step).attr('y', 0).attr('height', H - 24).attr('fill', 'transparent')
+      .on('mousemove', (ev, r) => {
+        const o = old.find((q) => q.contract === r.contract);
+        const ln = ser.map((s) => [s.c, s.name, money(r[s.k]) + (o && o[s.k] != null && r[s.k] != null ? '（较上期 ' + signed(r[s.k] - o[s.k]) + '）' : '')]);
+        const [mx, my] = d3.pointer(ev, el); tp.show(r.contract + ' 合约', ln, mx, my);
+      })
+      .on('mouseleave', () => tp.hide());
+  }
+
+  /* ---------- horizontal bars ---------- */
+  function hbar(el, items, fmtV, tipTitle) {
+    const H = items.length * 34 + 24;
+    const { svg, W } = svgIn(el, H);
+    const ml = d3.max(items, (i) => textW(svg, i.label)) + 12;
+    const lbls = items.map((i) => i.value == null ? '未核实' : fmtV(i.value));
+    const mr = d3.max(lbls, (s) => textW(svg, s, 'cx-lbl')) + 16;
+    const vals = items.map((i) => i.value).filter((v) => v != null);
+    const lo = Math.min(0, d3.min(vals) ?? 0), hi = Math.max(0, d3.max(vals) ?? 0);
+    const x = d3.scaleLinear([lo, hi === lo ? 1 : hi], [ml, W - mr]);
+    const yb = d3.scaleBand(items.map((d, i) => i), [6, H - 18]).padding(0.28);
+    const bh = Math.min(yb.bandwidth(), 22);
+    svg.append('g').selectAll('text').data(items).join('text').attr('class', 'cx-tick').attr('x', ml - 10).attr('y', (d, i) => yb(i) + yb.bandwidth() / 2).attr('dy', '0.32em').attr('text-anchor', 'end').text((d) => d.label);
+    svg.append('line').attr('x1', x(0)).attr('x2', x(0)).attr('y1', 4).attr('y2', H - 16).attr('stroke', 'var(--cds-chart-axis)');
+    svg.append('g').selectAll('rect').data(items.filter((d) => d.value != null)).join('rect')
+      .attr('x', (d) => Math.min(x(0), x(d.value))).attr('width', (d) => Math.max(1, Math.abs(x(d.value) - x(0))))
+      .attr('y', (d) => yb(items.indexOf(d)) + (yb.bandwidth() - bh) / 2).attr('height', bh).attr('rx', 4)
+      .attr('fill', (d) => d.color);
+    svg.append('g').selectAll('text').data(items).join('text').attr('class', 'cx-lbl').attr('x', W - mr + 10).attr('y', (d, i) => yb(i) + yb.bandwidth() / 2).attr('dy', '0.32em')
+      .attr('fill', (d) => d.value == null ? 'var(--color-fg-muted)' : 'var(--color-fg)').text((d, i) => lbls[i]);
+    const tp = tip(el);
+    svg.append('g').selectAll('rect').data(items).join('rect').attr('x', 0).attr('width', W).attr('y', (d, i) => yb(i) - 3).attr('height', yb.bandwidth() + 6).attr('fill', 'transparent')
+      .on('mousemove', (ev, d) => { const [mx, my] = d3.pointer(ev, el); tp.show(d.label, d.tip || [[d.value == null ? null : d.color, tipTitle, d.value == null ? '未核实' : fmtV(d.value)]], mx, my); })
+      .on('mouseleave', () => tp.hide());
+  }
+
+  function hormuz() {
+    const el = document.getElementById('cx-hormuz');
+    const share = document.getElementById('cx-share');
+    const sg = dash.data('signals');
+    share.removeAttribute('data-source');
+    if (sg.status === 'ok') {
+      const r = (sg.data || []).find((q) => q.factor === '有效供应');
+      share.setAttribute('data-source', 'signals'); share.setAttribute('data-field', 'value'); share.setAttribute('data-where', 'factor=有效供应');
+      share.textContent = r && r.value != null ? d3.format('.1f')(r.value) : '—';
+    } else share.textContent = '—';
+    const got = prep(el, ['daily']); if (!got || !got[0].length) return;
+    const t = sortD(got[0]).at(-1);
+    const fmt = (v) => d3.format(',')(v) + ' 万桶/日';
+    hbar(el, [
+      { label: '战前', value: num(t.hormuz_prewar), color: 'var(--cds-chart-muted)' },
+      { label: '当前', value: num(t.hormuz), color: dash.colors[0] }
+    ], fmt, '运输量');
+  }
+
+  function inventory() {
+    const el = document.getElementById('cx-inv');
+    const got = prep(el, ['daily']); if (!got || !got[0].length) return;
+    const t = sortD(got[0]).at(-1);
+    const note = document.getElementById('cx-inv-note');
+    note.textContent = '截至 ' + md(t.eia_week) + ' 当周，单位万桶；悬停看库存总量。';
+    const lvl = (v) => v == null ? '—' : d3.format('.3f')(v / 100) + ' 亿桶';
+    const fmt = (v) => signed(v * 100, 0) + ' 万桶';
+    const mk = (label, chg, inv) => {
+      const v = num(chg);
+      return { label, value: v, color: v < 0 ? dash.colors[1] : dash.colors[0], tip: [[v < 0 ? dash.colors[1] : dash.colors[0], '周变化', v == null ? '—' : fmt(v)], [null, '库存', lvl(num(inv))]] };
+    };
+    hbar(el, [mk('商业原油', t.crude_inv_chg, t.crude_inv), mk('汽油', t.gasoline_inv_chg, t.gasoline_inv), mk('馏分油', t.distillate_inv_chg, t.distillate_inv)], fmt, '周变化');
+  }
+
+  function peers() {
+    const el = document.getElementById('cx-peers');
+    const got = prep(el, ['peers']); if (!got || !got[0].length) return;
+    const rows = got[0];
+    const last = [...new Set(rows.map((r) => String(r.date).slice(0, 10)))].sort().at(-1);
+    const cur = rows.filter((r) => String(r.date).slice(0, 10) === last);
+    hbar(el, cur.map((r) => {
+      const v = num(r.chg);
+      return { label: r.ticker + ' · ' + r.group, value: v, color: v < 0 ? dash.colors[1] : dash.colors[0],
+        tip: [[v == null ? null : (v < 0 ? dash.colors[1] : dash.colors[0]), '涨跌', v == null ? '未核实' : pct(v)], [null, '收盘', money(num(r.close))]] };
+    }), pct, '涨跌');
+  }
+
+  /* ---------- indexed history ---------- */
+  function indexed() {
+    const el = document.getElementById('cx-idx');
+    const note = document.getElementById('cx-idx-note');
+    note.textContent = '';
+    const got = prep(el, ['indexed']); if (!got || !got[0].length) return;
+    const rows = got[0].map((r) => ({ date: String(r.date), d: new Date(String(r.date)), brent: num(r.brent), cvx: num(r.cvx), xle: num(r.xle) }));
+    if (rows.length < 2) note.textContent = '目前只有一期记录；每天追加后会形成走势，偏离 100 越多说明谁跑赢。';
+    const ser = [{ k: 'brent', name: 'Brent', c: dash.colors[0] }, { k: 'cvx', name: 'CVX', c: dash.colors[1] }, { k: 'xle', name: 'XLE', c: dash.colors[2] }];
+    const { svg, W, H } = svgIn(el, 240);
+    const vals = rows.flatMap((r) => ser.map((s) => r[s.k])).filter((v) => v != null);
+    const y = d3.scaleLinear([Math.min(98, d3.min(vals) - 1), Math.max(102, d3.max(vals) + 1)], [H - 30, 14]).nice();
+    const yt = y.ticks(5);
+    const ml = d3.max(yt, (v) => textW(svg, String(v))) + 10;
+    const lastR = rows.at(-1);
+    const ends = ser.map((s) => s.name + ' ' + d3.format('.1f')(lastR[s.k]));
+    const mr = d3.max(ends, (s) => textW(svg, s, 'cx-lbl')) + 16;
+    let ext = d3.extent(rows, (r) => r.d);
+    if (+ext[0] === +ext[1]) ext = [d3.utcDay.offset(ext[0], -1), d3.utcDay.offset(ext[1], 1)];
+    const x = d3.scaleUtc(ext, [ml + 8, W - mr]);
+    svg.append('g').selectAll('line').data(yt).join('line').attr('x1', ml).attr('x2', W - mr + 6).attr('y1', (v) => y(v)).attr('y2', (v) => y(v)).attr('stroke', (v) => v === 100 ? 'var(--cds-chart-reference)' : 'var(--cds-chart-grid)');
+    svg.append('g').selectAll('text').data(yt).join('text').attr('class', 'cx-tick').attr('x', ml - 8).attr('y', (v) => y(v)).attr('dy', '0.32em').attr('text-anchor', 'end').text((v) => v);
+    const xt = rows.length < 2 ? rows.map((r) => r.d) : x.ticks(Math.max(2, Math.min(rows.length, Math.floor((W - ml - mr) / 70))));
+    svg.append('g').selectAll('text').data(xt).join('text').attr('class', 'cx-tick').attr('x', (d) => x(d)).attr('y', H - 8).attr('text-anchor', 'middle').text((d) => d3.utcFormat('%-m/%-d')(d));
+    ser.forEach((s) => {
+      svg.append('path').datum(rows).attr('d', d3.line().defined((r) => r[s.k] != null).x((r) => x(r.d)).y((r) => y(r[s.k]))).attr('fill', 'none').attr('stroke', s.c).attr('stroke-width', 2).attr('stroke-linecap', 'round').attr('stroke-linejoin', 'round');
+      svg.append('circle').attr('cx', x(lastR.d)).attr('cy', y(lastR[s.k])).attr('r', 3.5).attr('fill', s.c);
+    });
+    const lbls = spread(ser.map((s, i) => ({ y: y(lastR[s.k]), text: ends[i], c: s.c })), 15, 10, H - 34);
+    svg.append('g').selectAll('text').data(lbls).join('text').attr('class', 'cx-lbl').attr('x', x(lastR.d) + 8).attr('y', (d) => d.y).attr('dy', '0.32em').attr('fill', (d) => d.c).text((d) => d.text);
+    const tp = tip(el);
+    svg.append('rect').attr('x', ml).attr('width', W - ml - mr).attr('y', 0).attr('height', H - 24).attr('fill', 'transparent')
+      .on('mousemove', (ev) => {
+        const [mx, my] = d3.pointer(ev, el);
+        const t0 = x.invert(mx); let best = rows[0];
+        rows.forEach((r) => { if (Math.abs(r.d - t0) < Math.abs(best.d - t0)) best = r; });
+        tp.show(md(best.date), ser.map((s) => [s.c, s.name, best[s.k] == null ? '—' : d3.format('.1f')(best[s.k])]), mx, my);
+      })
+      .on('mouseleave', () => tp.hide());
+  }
+
+  /* ---------- analyst targets ---------- */
+  function targets() {
+    const el = document.getElementById('cx-tg');
+    const got = prep(el, ['targets', 'daily']); if (!got || !got[1].length) return;
+    const [tg, dl] = got;
+    const close = num(sortD(dl).at(-1).cvx_close);
+    const rows = tg.map((r) => ({ firm: String(r.firm), date: r.date, prior: num(r.prior), target: num(r.target) })).sort((a, b) => b.target - a.target);
+    const H = rows.length * 36 + 48;
+    const { svg, W } = svgIn(el, H);
+    const labs = rows.map((r) => r.firm + ' · ' + md(r.date));
+    const ml = d3.max(labs, (s) => textW(svg, s)) + 14;
+    const vals = [close, ...rows.map((r) => r.target), ...rows.map((r) => r.prior)].filter((v) => v != null);
+    const mr = textW(svg, '$000', 'cx-lbl') + 14;
+    const x = d3.scaleLinear([d3.min(vals) - 4, d3.max(vals) + 4], [ml, W - mr]).nice();
+    const yb = d3.scaleBand(rows.map((r, i) => i), [26, H - 22]).padding(0.3);
+    const xt = x.ticks(Math.max(3, Math.floor((W - ml - mr) / 70)));
+    svg.append('g').selectAll('line').data(xt).join('line').attr('x1', (v) => x(v)).attr('x2', (v) => x(v)).attr('y1', 22).attr('y2', H - 20).attr('stroke', 'var(--cds-chart-grid)');
+    svg.append('g').selectAll('text').data(xt).join('text').attr('class', 'cx-tick').attr('x', (v) => x(v)).attr('y', H - 4).attr('text-anchor', 'middle').text((v) => '$' + v);
+    svg.append('line').attr('x1', x(close)).attr('x2', x(close)).attr('y1', 18).attr('y2', H - 20).attr('stroke', 'var(--cds-chart-reference)').attr('stroke-dasharray', '4 3');
+    const cl = 'CVX 前收 ' + money(close);
+    const cw = textW(svg, cl);
+    svg.append('text').attr('class', 'cx-tick').attr('x', Math.min(Math.max(x(close), ml + cw / 2), W - cw / 2)).attr('y', 12).attr('text-anchor', 'middle').text(cl);
+    svg.append('g').selectAll('text').data(rows).join('text').attr('class', 'cx-tick').attr('x', ml - 10).attr('y', (r, i) => yb(i) + yb.bandwidth() / 2).attr('dy', '0.32em').attr('text-anchor', 'end').text((r, i) => labs[i]);
+    rows.forEach((r, i) => {
+      const cy = yb(i) + yb.bandwidth() / 2;
+      if (r.prior != null) {
+        svg.append('line').attr('x1', x(r.prior)).attr('x2', x(r.target)).attr('y1', cy).attr('y2', cy).attr('stroke', 'var(--cds-chart-muted)').attr('stroke-width', 2);
+        svg.append('circle').attr('cx', x(r.prior)).attr('cy', cy).attr('r', 5).attr('fill', 'var(--color-panel)').attr('stroke', 'var(--cds-chart-muted)').attr('stroke-width', 2);
+      }
+      svg.append('circle').attr('cx', x(r.target)).attr('cy', cy).attr('r', 6).attr('fill', dash.colors[0]);
+      svg.append('text').attr('class', 'cx-lbl').attr('x', x(r.target) + 10).attr('y', cy).attr('dy', '0.32em').text('$' + r.target);
+    });
+    const tp = tip(el);
+    svg.append('g').selectAll('rect').data(rows).join('rect').attr('x', 0).attr('width', W).attr('y', (r, i) => yb(i) - 4).attr('height', yb.bandwidth() + 8).attr('fill', 'transparent')
+      .on('mousemove', (ev, r) => {
+        const [mx, my] = d3.pointer(ev, el);
+        const ln = [[dash.colors[0], '目标价', money(r.target)]];
+        if (r.prior != null) ln.push([null, '调整前', money(r.prior)]);
+        ln.push([null, '相对前收', signed((r.target / close - 1) * 100, 1) + '%']);
+        tp.show(r.firm + ' · ' + md(r.date), ln, mx, my);
+      })
+      .on('mouseleave', () => tp.hide());
+  }
+
+  /* ---------- scenarios ---------- */
+  function scenarios() {
+    const el = document.getElementById('cx-sc');
+    const txt = document.getElementById('cx-scen-txt');
+    txt.textContent = '';
+    const got = prep(el, ['scenarios', 'daily']); if (!got || !got[1].length) return;
+    const [sc, dl] = got;
+    const brent = num(sortD(dl).at(-1).brent);
+    const rows = sc.map((r) => ({ case: String(r.case), lo: num(r.brent_low), hi: num(r.brent_high), a: r.assumption, im: r.impact }));
+    const dLo = Math.min(85, d3.min(rows, (r) => r.lo) - 5, brent - 5);
+    const dHi = Math.max(130, brent + 5, d3.max(rows, (r) => r.hi ?? r.lo) + 5);
+    const H = rows.length * 40 + 50;
+    const { svg, W } = svgIn(el, H);
+    const ml = d3.max(rows, (r) => textW(svg, r.case)) + 14;
+    const x = d3.scaleLinear([dLo, dHi], [ml, W - 12]);
+    const yb = d3.scaleBand(rows.map((r, i) => i), [26, H - 24]).padding(0.3);
+    const colorOf = (c) => c === 'Bull' ? dash.colors[0] : c === 'Bear' ? dash.colors[1] : dash.colors[2];
+    const xt = x.ticks(Math.max(3, Math.floor((W - ml) / 60)));
+    svg.append('g').selectAll('line').data(xt).join('line').attr('x1', (v) => x(v)).attr('x2', (v) => x(v)).attr('y1', 22).attr('y2', H - 22).attr('stroke', 'var(--cds-chart-grid)');
+    svg.append('g').selectAll('text').data(xt).join('text').attr('class', 'cx-tick').attr('x', (v) => x(v)).attr('y', H - 6).attr('text-anchor', 'middle').text((v) => '$' + v);
+    svg.append('g').selectAll('text').data(rows).join('text').attr('class', 'cx-tick').attr('x', ml - 10).attr('y', (r, i) => yb(i) + yb.bandwidth() / 2).attr('dy', '0.32em').attr('text-anchor', 'end').text((r) => r.case);
+    rows.forEach((r, i) => {
+      const x1 = x(r.lo), x2 = x(r.hi ?? dHi);
+      svg.append('rect').attr('x', x1).attr('width', Math.max(2, x2 - x1)).attr('y', yb(i)).attr('height', yb.bandwidth()).attr('rx', 4).attr('fill', colorOf(r.case)).attr('fill-opacity', 0.35).attr('stroke', colorOf(r.case));
+      const lab = r.hi == null ? '>$' + r.lo : '$' + r.lo + '–' + r.hi;
+      svg.append('text').attr('class', 'cx-lbl').attr('x', x1 + 8).attr('y', yb(i) + yb.bandwidth() / 2).attr('dy', '0.32em').text(lab);
+    });
+    svg.append('line').attr('x1', x(brent)).attr('x2', x(brent)).attr('y1', 18).attr('y2', H - 22).attr('stroke', 'var(--color-fg)').attr('stroke-width', 2);
+    const bl = 'Brent ' + money(brent); const bw = textW(svg, bl);
+    svg.append('text').attr('class', 'cx-lbl').attr('x', Math.min(Math.max(x(brent), ml + bw / 2), W - bw / 2)).attr('y', 12).attr('text-anchor', 'middle').text(bl);
+    const tp = tip(el);
+    svg.append('g').selectAll('rect.hit').data(rows).join('rect').attr('x', 0).attr('width', W).attr('y', (r, i) => yb(i) - 4).attr('height', yb.bandwidth() + 8).attr('fill', 'transparent')
+      .on('mousemove', (ev, r) => { const [mx, my] = d3.pointer(ev, el); tp.show(r.case, [[colorOf(r.case), 'Brent', r.hi == null ? '>$' + r.lo : '$' + r.lo + '–' + r.hi], [null, '距最新', signed((r.hi == null ? r.lo : (r.lo + r.hi) / 2) - brent) + ' $/桶']], mx, my); })
+      .on('mouseleave', () => tp.hide());
+    rows.forEach((r) => {
+      const d = document.createElement('div');
+      const b = document.createElement('b'); b.textContent = r.case; d.appendChild(b);
+      d.appendChild(document.createElement('br'));
+      d.appendChild(document.createTextNode(String(r.a || '') + ' → ' + String(r.im || '')));
+      txt.appendChild(d);
+    });
+  }
+
+  dash.onData(() => {
+    header();
+    kpis();
+    table('cx-sig', 'signals', ['factor', 'metric', 'value', 'unit', 'read'], {
+      value: (td, v, r) => { td.textContent = v == null ? '—' : d3.format(',.2~f')(v); }
+    }, ['value']);
+    curve();
+    hormuz();
+    inventory();
+    peers();
+    indexed();
+    targets();
+    scenarios();
+    table('cx-calls', 'calls', ['tickers', 'call', 'condition'], {
+      call: (td, v) => { const s = document.createElement('span'); s.className = 'cx-pill'; s.textContent = v == null ? '—' : String(v); td.appendChild(s); }
+    });
+  });
+})();
+</script>
+
+</div>
+</body>
+</html>

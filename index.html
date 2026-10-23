@@ -80,6 +80,19 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg)}
 .cx-scen div{font-size:var(--cds-font-size-caption);line-height:1.55;color:var(--color-fg-muted)}
 .cx .cx-scen b{color:var(--color-fg);font-weight:600}
 .cx-pill{display:inline-block;font-size:var(--cds-font-size-caption);padding:2px 8px;border-radius:999px;border:1px solid var(--color-border-line);white-space:nowrap}
+.cx-cardhead{display:flex;justify-content:space-between;align-items:center;gap:var(--cds-gap-md);flex-wrap:wrap}
+.cx-toggle{display:inline-flex;border:1px solid var(--color-border-line);border-radius:999px;padding:2px;gap:2px;flex:none}
+.cx-toggle button{font:inherit;font-size:var(--cds-font-size-caption);border:0;background:transparent;color:var(--color-fg-muted);padding:6px 16px;min-height:34px;border-radius:999px;cursor:pointer}
+.cx-toggle button[aria-pressed=true]{background:var(--color-fg);color:var(--color-panel)}
+.cx-toggle button:focus-visible{outline:2px solid var(--color-fg);outline-offset:2px}
+.cx-sigcards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,15rem),1fr));gap:var(--cds-gap-sm)}
+.cx-sgc{border:1px solid var(--color-border-line);border-radius:var(--cds-radius);padding:var(--cds-pad-md);display:flex;flex-direction:column;gap:var(--cds-gap-xs);min-height:6.5rem}
+.cx-sgc-top{display:flex;justify-content:space-between;align-items:baseline;gap:var(--cds-gap-sm)}
+.cx-sgc-name{font-weight:var(--cds-font-weight-medium);font-size:var(--cds-font-size-body)}
+.cx-sgc-val{font-family:var(--font-anthropic-serif);font-size:var(--cds-font-size-heading);font-variant-numeric:tabular-nums;white-space:nowrap}
+.cx-sgc-unit{font-size:var(--cds-font-size-caption);color:var(--color-fg-muted);margin-left:4px}
+.cx-sgc-metric{font-size:var(--cds-font-size-caption);color:var(--color-fg-muted)}
+.cx-sgc-read{font-size:var(--cds-font-size-body);line-height:1.5}
 .cx [data-dash-source-state=empty]{color:transparent}
 .cx [data-dash-source-state=refreshing]{opacity:.5;transition:opacity var(--cds-dur-slow)}
 </style>
@@ -95,9 +108,16 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg)}
 
   <section class="cx-sec" id="factors">
     <h2>因子信号</h2>
-    <div class="cx-card">
-      <p class="cx-note">每个因子用最新一期数据给出读数；"远月跟涨"和"较上期"类判断需要至少两天的记录。</p>
-      <div class="cx-scroll">
+    <div class="cx-card" id="cx-sig-card">
+      <div class="cx-cardhead">
+        <p class="cx-note">每个因子用最新一期数据给出读数；"远月跟涨"和"较上期"类判断需要至少两期记录。</p>
+        <div class="cx-toggle" role="group" aria-label="因子信号显示方式">
+          <button type="button" data-view="table" aria-pressed="true">表格</button>
+          <button type="button" data-view="cards" aria-pressed="false">卡片</button>
+        </div>
+      </div>
+      <div class="cx-sigcards" id="cx-sig-cards"></div>
+      <div class="cx-scroll" id="cx-sig-wrap">
         <table class="cx-tbl" id="cx-sig" data-source="signals" data-row-key="factor">
           <thead><tr><th data-field="factor">因子</th><th data-field="metric">指标</th><th class="num" data-field="value">读数</th><th data-field="unit">单位</th><th data-field="read">解读</th></tr></thead>
           <tbody></tbody>
@@ -643,12 +663,57 @@ dash.calc('indexed', {
     });
   }
 
+  /* ---------- factor signals: table / cards toggle ---------- */
+  let sigChoice = null; // null = follow screen width
+  const sigView = () => sigChoice || (document.getElementById('cx-sig-card').clientWidth < 560 ? 'cards' : 'table');
+  function sigCards() {
+    const box = document.getElementById('cx-sig-cards');
+    const d = dash.data('signals');
+    box.textContent = '';
+    if (d.status !== 'ok') {
+      const ph = document.createElement('div'); ph.className = 'cx-sgc';
+      if (bad(d.status)) failBox(ph); else ph.classList.add('dash-skeleton');
+      box.appendChild(ph); return;
+    }
+    (d.data || []).forEach((r) => {
+      const w = 'factor=' + encodeURIComponent(String(r.factor));
+      const mk = (tag, cls, field, txt) => { const e = document.createElement(tag); e.className = cls; e.setAttribute('data-source', 'signals'); e.setAttribute('data-field', field); e.setAttribute('data-where', w); e.textContent = txt; return e; };
+      const c = document.createElement('div'); c.className = 'cx-sgc';
+      const top = document.createElement('div'); top.className = 'cx-sgc-top';
+      top.appendChild(mk('span', 'cx-sgc-name', 'factor', String(r.factor)));
+      const val = document.createElement('span'); val.className = 'cx-sgc-val';
+      val.appendChild(mk('span', '', 'value', r.value == null ? '—' : d3.format(',.2~f')(r.value)));
+      val.appendChild(mk('span', 'cx-sgc-unit', 'unit', String(r.unit || '')));
+      top.appendChild(val);
+      c.appendChild(top);
+      c.appendChild(mk('div', 'cx-sgc-metric', 'metric', String(r.metric || '')));
+      c.appendChild(mk('div', 'cx-sgc-read', 'read', String(r.read || '')));
+      box.appendChild(c);
+    });
+  }
+  function signals() {
+    const v = sigView();
+    document.querySelectorAll('#cx-sig-card .cx-toggle button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === v)));
+    const cards = document.getElementById('cx-sig-cards');
+    const wrap = document.getElementById('cx-sig-wrap');
+    cards.style.display = v === 'cards' ? '' : 'none';
+    wrap.style.display = v === 'table' ? '' : 'none';
+    if (v === 'cards') { sigCards(); document.getElementById('cx-sig').tBodies[0].textContent = ''; }
+    else {
+      cards.textContent = '';
+      table('cx-sig', 'signals', ['factor', 'metric', 'value', 'unit', 'read'], {
+        value: (td, val) => { td.textContent = val == null ? '—' : d3.format(',.2~f')(val); }
+      }, ['value']);
+    }
+  }
+  document.querySelectorAll('#cx-sig-card .cx-toggle button').forEach((b) => {
+    b.addEventListener('click', () => { sigChoice = b.dataset.view; signals(); });
+  });
+
   dash.onData(() => {
     header();
     kpis();
-    table('cx-sig', 'signals', ['factor', 'metric', 'value', 'unit', 'read'], {
-      value: (td, v, r) => { td.textContent = v == null ? '—' : d3.format(',.2~f')(v); }
-    }, ['value']);
+    signals();
     curve();
     hormuz();
     inventory();

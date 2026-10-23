@@ -130,12 +130,12 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg)}
     <div class="cx-grid">
       <div class="cx-card">
         <h3 id="peers-h">能源股日涨跌</h3>
-        <p class="cx-note">按业务分组的前一交易日收盘涨跌，看油价上涨是否传导到各环节。</p>
+        <p class="cx-note">按业务分组的最新交易日收盘涨跌，看油价上涨是否传导到各环节。</p>
         <div class="cx-chart" id="cx-peers" data-source="peers" style="min-height:398px"></div>
       </div>
       <div class="cx-card">
         <h3 id="idx-h">Brent、CVX、XLE 相对走势</h3>
-        <p class="cx-note">以第一条记录为 100。Brent 为报告日盘前价，CVX 与 XLE 为前一交易日收盘。</p>
+        <p class="cx-note">以第一条记录为 100。盘前期里 Brent 为盘前价、CVX 与 XLE 为前一日收盘；收盘期里三者都是当天收盘或结算。</p>
         <div class="cx-chart" id="cx-idx" data-source="indexed" style="min-height:240px"></div>
         <p class="cx-note" id="cx-idx-note"></p>
       </div>
@@ -172,7 +172,7 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg)}
     </div>
   </section>
 
-  <p class="cx-note">数据来自每日盘前报告（Reuters、WSJ/Kpler、OilPrice.com、EIA、MarketWatch、Benzinga），每天手动追加一期。原油为盘前期货报价，股票与 ETF 为前一交易日收盘，二者不是同一时点。</p>
+  <p class="cx-note">数据来自每日盘前报告（Reuters、WSJ/Kpler、OilPrice.com、EIA、MarketWatch、Benzinga）与收盘后补录（StockAnalysis、OilPrice.com、Yahoo Finance），每天追加。盘前期的原油为盘前报价、股票为前一日收盘，二者不是同一时点；期货曲线为各合约最近成交价，非官方结算价。</p>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
@@ -210,12 +210,19 @@ dash.calc('signals', {
     rows.push({factor: '远月跟涨', metric: '2027年3月 Brent 较上期变化', value: far, unit: '$/桶', read: farRead});
     const share = n(t.hormuz) / n(t.hormuz_prewar);
     let supRead = '低于战前约 ' + Math.round((1 - share) * 100) + '%';
-    if (p) supRead += n(t.hormuz) < n(p.hormuz) ? '，较上期恶化' : n(t.hormuz) > n(p.hormuz) ? '，较上期改善' : '，与上期持平';
+    if (p && String(p.hormuz_asof) !== String(t.hormuz_asof)) supRead += n(t.hormuz) < n(p.hormuz) ? '，较上期恶化' : n(t.hormuz) > n(p.hormuz) ? '，较上期改善' : '，与上期持平';
+    else if (p) supRead += '（本期无新数据）';
     rows.push({factor: '有效供应', metric: '霍尔木兹运输量 / 战前', value: +(share * 100).toFixed(1), unit: '%', read: supRead});
     const inv = n(t.crude_inv_chg);
-    rows.push({factor: '美国库存', metric: '商业原油周变化', value: inv, unit: '百万桶', read: inv < 0 ? '去库存：支持近期偏紧' : '累库存：偏宽松'});
+    let invRead = inv < 0 ? '去库存：支持近期偏紧' : '累库存：偏宽松';
+    if (p && String(p.eia_week) === String(t.eia_week)) invRead += '（EIA 周报未更新）';
+    rows.push({factor: '美国库存', metric: '商业原油周变化', value: inv, unit: '百万桶', read: invRead});
     const rel = +(n(t.cvx_chg) - n(t.xle_chg)).toFixed(2);
     rows.push({factor: '股价确认', metric: 'CVX − XLE 日涨跌', value: rel, unit: '百分点', read: rel > 0 ? 'CVX 跑赢能源板块' : rel < 0 ? 'CVX 跑输能源板块' : '与板块持平'});
+    if (t.spx_kind === '收盘') {
+      const mk = +(n(t.cvx_chg) - n(t.spx_chg)).toFixed(2);
+      rows.push({factor: '大盘对比', metric: 'CVX − S&P 500 日涨跌', value: mk, unit: '百分点', read: mk > 0 ? 'CVX 跑赢大盘' : mk < 0 ? 'CVX 跑输大盘' : '与大盘持平'});
+    }
     return rows;
   }
 });
@@ -229,7 +236,8 @@ dash.calc('indexed', {
     if (!r.length) return [];
     const b0 = Number(r[0].brent), c0 = Number(r[0].cvx_close), x0 = Number(r[0].xle_close);
     return r.map((d) => ({
-      date: String(d.date).slice(0, 10),
+      date: String(d.date),
+      session: String(d.session || ''),
       brent: +(100 * Number(d.brent) / b0).toFixed(2),
       cvx: +(100 * Number(d.cvx_close) / c0).toFixed(2),
       xle: +(100 * Number(d.xle_close) / x0).toFixed(2)
@@ -312,24 +320,27 @@ dash.calc('indexed', {
     const t = sortD(d.data).at(-1);
     const w = 'date=' + encodeURIComponent(String(t.date));
     const mark = (f, txt) => { const b = document.createElement('b'); b.setAttribute('data-source', 'daily'); b.setAttribute('data-field', f); b.setAttribute('data-where', w); b.textContent = txt; return b; };
-    const bc = num(t.brent_chg), cc = num(t.cvx_chg);
+    const bc = num(t.brent_chg), wc = num(t.wti_chg), cc = num(t.cvx_chg);
+    const oc = bc != null ? bc : wc;
     let verdict = '油价与 CVX 同步走弱。';
-    if (bc > 0 && !(cc > 0)) verdict = '油价在涨，CVX 没有跟上：市场仍在区分风险溢价与真实盈利。';
-    else if (bc > 0 && cc > 0) verdict = '油价与 CVX 同向上涨。';
-    else if (!(bc > 0) && cc >= 0) verdict = 'CVX 在油价走弱时守住了。';
-    el.append('Brent ', mark('brent', money(num(t.brent))), '（', mark('brent_chg', pct(bc)), '），CVX 前收 ', mark('cvx_close', money(num(t.cvx_close))), '（', mark('cvx_chg', pct(cc)), '）。', verdict, ' 下一个催化剂：', mark('next_catalyst', md(t.next_catalyst)), ' Q3 财报。');
+    if (oc > 0 && !(cc > 0)) verdict = '油价在涨，CVX 没有跟上：市场仍在区分风险溢价与真实盈利。';
+    else if (oc > 0 && cc > 0) verdict = '油价与 CVX 同向上涨，股价开始确认油价。';
+    else if (!(oc > 0) && cc >= 0) verdict = 'CVX 在油价走弱时守住了。';
+    el.append('Brent ', mark('brent', money(num(t.brent))));
+    if (bc != null) el.append('（', mark('brent_chg', pct(bc)), '）');
+    el.append('，WTI ', mark('wti', money(num(t.wti))), '（', mark('wti_chg', pct(wc)), '），CVX ', mark('cvx_close', money(num(t.cvx_close))), '（', mark('cvx_chg', pct(cc)), '）。', verdict, ' 下一个催化剂：', mark('next_catalyst', md(t.next_catalyst)), ' Q3 财报。');
     const m2 = (f, txt) => { const s = document.createElement('span'); s.setAttribute('data-source', 'daily'); s.setAttribute('data-field', f); s.setAttribute('data-where', w); s.textContent = txt; return s; };
-    asof.append('报告日 ', m2('date', md(t.date)), ' · 原油为盘前期货 · 股票为 ', m2('close_date', md(t.close_date)), ' 收盘 · 已记录 ' + d.data.length + ' 期');
+    asof.append('数据时点 ', m2('date', md(t.date)), ' ', m2('session', String(t.session || '')), ' · 原油为', m2('oil_kind', String(t.oil_kind || '')), ' · 股票为 ', m2('close_date', md(t.close_date)), ' 收盘 · 已记录 ' + d.data.length + ' 期');
   }
 
   /* ---------- KPI tiles ---------- */
   const tiles = [
-    { lab: 'CVX 前收', f: 'cvx_close', c: 'cvx_chg', fmt: money, main: true },
-    { lab: 'Brent 近月期货', f: 'brent', c: 'brent_chg', fmt: money },
-    { lab: 'WTI 近月期货', f: 'wti', c: 'wti_chg', fmt: money },
-    { lab: 'Brent − WTI', f: 'brent_wti', fmt: money, note: '国际原油溢价' },
-    { lab: 'XLE 前收', f: 'xle_close', c: 'xle_chg', fmt: money },
-    { lab: 'S&P 500 期货', f: 'spx_fut', c: 'spx_fut_chg', fmt: (v) => v == null ? '—' : d3.format(',')(v) }
+    { lab: () => 'CVX 收盘', f: 'cvx_close', c: 'cvx_chg', fmt: money, main: true },
+    { lab: (t) => 'Brent 近月 · ' + (t ? t.oil_kind || '' : ''), f: 'brent', c: 'brent_chg', fmt: money },
+    { lab: (t) => 'WTI 近月 · ' + (t ? t.oil_kind || '' : ''), f: 'wti', c: 'wti_chg', fmt: money },
+    { lab: () => 'Brent − WTI', f: 'brent_wti', fmt: money, note: '国际原油溢价' },
+    { lab: () => 'XLE 收盘', f: 'xle_close', c: 'xle_chg', fmt: money },
+    { lab: (t) => 'S&P 500 · ' + (t ? t.spx_kind || '' : ''), f: 'spx', c: 'spx_chg', fmt: (v) => v == null ? '—' : d3.format(',.2~f')(v) }
   ];
   function kpis() {
     const el = document.getElementById('cx-kpis');
@@ -340,14 +351,15 @@ dash.calc('indexed', {
     const w = t ? 'date=' + encodeURIComponent(String(t.date)) : '';
     tiles.forEach((cfg) => {
       const tile = document.createElement('div'); tile.className = 'cx-tile' + (cfg.main ? ' is-main' : '');
-      const lab = document.createElement('div'); lab.className = 'cx-lab'; lab.textContent = cfg.lab; tile.appendChild(lab);
+      const lab = document.createElement('div'); lab.className = 'cx-lab'; lab.textContent = cfg.lab(t); tile.appendChild(lab);
       const big = document.createElement('div'); big.className = 'cx-big';
       if (ok) { big.setAttribute('data-source', 'daily'); big.setAttribute('data-field', cfg.f); big.setAttribute('data-where', w); big.textContent = cfg.fmt(num(t[cfg.f])); }
       else if (bad(d.status)) { big.textContent = '—'; }
       else { big.classList.add('dash-skeleton'); }
       tile.appendChild(big);
       const sub = document.createElement('div'); sub.className = 'cx-chg';
-      if (ok && cfg.c) {
+      if (ok && cfg.c && num(t[cfg.c]) == null) { sub.className = 'cx-chg cx-lab'; sub.textContent = '涨跌未核实'; }
+      else if (ok && cfg.c) {
         const v = num(t[cfg.c]);
         sub.className = 'cx-chg ' + cls(v);
         sub.setAttribute('data-source', 'daily'); sub.setAttribute('data-field', cfg.c); sub.setAttribute('data-where', w);
@@ -386,7 +398,7 @@ dash.calc('indexed', {
   function curve() {
     const el = document.getElementById('cx-curve');
     const got = prep(el, ['curve']); if (!got) return;
-    const rows = got[0].map((r) => ({ date: String(r.date).slice(0, 10), contract: String(r.contract), brent: num(r.brent), wti: num(r.wti) }));
+    const rows = got[0].map((r) => ({ date: String(r.date), contract: String(r.contract), brent: num(r.brent), wti: num(r.wti) }));
     if (!rows.length) return;
     const dates = [...new Set(rows.map((r) => r.date))].sort();
     const last = dates.at(-1), prev = dates.length > 1 ? dates.at(-2) : null;
@@ -505,7 +517,8 @@ dash.calc('indexed', {
     const note = document.getElementById('cx-idx-note');
     note.textContent = '';
     const got = prep(el, ['indexed']); if (!got || !got[0].length) return;
-    const rows = got[0].map((r) => ({ date: String(r.date), d: new Date(String(r.date)), brent: num(r.brent), cvx: num(r.cvx), xle: num(r.xle) }));
+    const rows = got[0].map((r) => ({ date: String(r.date), session: String(r.session || ''), d: new Date(String(r.date)), brent: num(r.brent), cvx: num(r.cvx), xle: num(r.xle) }));
+    const tickLab = (r) => md(r.date) + (r.session ? ' ' + r.session : '');
     if (rows.length < 2) note.textContent = '目前只有一期记录；每天追加后会形成走势，偏离 100 越多说明谁跑赢。';
     const ser = [{ k: 'brent', name: 'Brent', c: dash.colors[0] }, { k: 'cvx', name: 'CVX', c: dash.colors[1] }, { k: 'xle', name: 'XLE', c: dash.colors[2] }];
     const { svg, W, H } = svgIn(el, 240);
@@ -521,8 +534,11 @@ dash.calc('indexed', {
     const x = d3.scaleUtc(ext, [ml + 8, W - mr]);
     svg.append('g').selectAll('line').data(yt).join('line').attr('x1', ml).attr('x2', W - mr + 6).attr('y1', (v) => y(v)).attr('y2', (v) => y(v)).attr('stroke', (v) => v === 100 ? 'var(--cds-chart-reference)' : 'var(--cds-chart-grid)');
     svg.append('g').selectAll('text').data(yt).join('text').attr('class', 'cx-tick').attr('x', ml - 8).attr('y', (v) => y(v)).attr('dy', '0.32em').attr('text-anchor', 'end').text((v) => v);
-    const xt = rows.length < 2 ? rows.map((r) => r.d) : x.ticks(Math.max(2, Math.min(rows.length, Math.floor((W - ml - mr) / 70))));
-    svg.append('g').selectAll('text').data(xt).join('text').attr('class', 'cx-tick').attr('x', (d) => x(d)).attr('y', H - 8).attr('text-anchor', 'middle').text((d) => d3.utcFormat('%-m/%-d')(d));
+    const room = Math.max(1, Math.floor((W - ml - mr) / 90));
+    const every = Math.max(1, Math.ceil(rows.length / room));
+    const xt = rows.filter((r, i) => i % every === 0 || i === rows.length - 1);
+    svg.append('g').selectAll('text').data(xt).join('text').attr('class', 'cx-tick').attr('x', (r) => x(r.d)).attr('y', H - 8)
+      .attr('text-anchor', (r, i) => xt.length > 1 && i === 0 ? 'start' : xt.length > 1 && i === xt.length - 1 ? 'end' : 'middle').text(tickLab);
     ser.forEach((s) => {
       svg.append('path').datum(rows).attr('d', d3.line().defined((r) => r[s.k] != null).x((r) => x(r.d)).y((r) => y(r[s.k]))).attr('fill', 'none').attr('stroke', s.c).attr('stroke-width', 2).attr('stroke-linecap', 'round').attr('stroke-linejoin', 'round');
       svg.append('circle').attr('cx', x(lastR.d)).attr('cy', y(lastR[s.k])).attr('r', 3.5).attr('fill', s.c);
@@ -535,7 +551,7 @@ dash.calc('indexed', {
         const [mx, my] = d3.pointer(ev, el);
         const t0 = x.invert(mx); let best = rows[0];
         rows.forEach((r) => { if (Math.abs(r.d - t0) < Math.abs(best.d - t0)) best = r; });
-        tp.show(md(best.date), ser.map((s) => [s.c, s.name, best[s.k] == null ? '—' : d3.format('.1f')(best[s.k])]), mx, my);
+        tp.show(tickLab(best), ser.map((s) => [s.c, s.name, best[s.k] == null ? '—' : d3.format('.1f')(best[s.k])]), mx, my);
       })
       .on('mouseleave', () => tp.hide());
   }

@@ -77,5 +77,82 @@ window.CVX_DATA.peers = [
     "ticker": "XLE",
     "close": 67.53,
     "chg": -0.92
+  },
+  {
+    "date": "2026-10-23",
+    "group": "综合油企",
+    "ticker": "CVX",
+    "close": 233.21,
+    "chg": 2.88
+  },
+  {
+    "date": "2026-10-23",
+    "group": "综合油企",
+    "ticker": "XOM",
+    "close": 183.21,
+    "chg": 2.79
+  },
+  {
+    "date": "2026-10-23",
+    "group": "上游",
+    "ticker": "COP",
+    "close": 150.79,
+    "chg": 3.54
+  },
+  {
+    "date": "2026-10-23",
+    "group": "上游",
+    "ticker": "OXY",
+    "close": 64.17,
+    "chg": 2.67
+  },
+  {
+    "date": "2026-10-23",
+    "group": "上游",
+    "ticker": "EOG",
+    "close": 163.03,
+    "chg": 3.21
+  },
+  {
+    "date": "2026-10-23",
+    "group": "上游",
+    "ticker": "DVN",
+    "close": 51.39,
+    "chg": 4.49
+  },
+  {
+    "date": "2026-10-23",
+    "group": "油服",
+    "ticker": "SLB",
+    "close": 53.14,
+    "chg": 7.25
+  },
+  {
+    "date": "2026-10-23",
+    "group": "油服",
+    "ticker": "HAL",
+    "close": 34.92,
+    "chg": 5.21
+  },
+  {
+    "date": "2026-10-23",
+    "group": "炼油",
+    "ticker": "VLO",
+    "close": 419.28,
+    "chg": -1.64
+  },
+  {
+    "date": "2026-10-23",
+    "group": "炼油",
+    "ticker": "MPC",
+    "close": 457.22,
+    "chg": -0.45
+  },
+  {
+    "date": "2026-10-23",
+    "group": "ETF",
+    "ticker": "XLE",
+    "close": 69.33,
+    "chg": 2.6
   }
 ];

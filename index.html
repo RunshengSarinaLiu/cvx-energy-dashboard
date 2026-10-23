@@ -40,24 +40,32 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg)}
 <body>
 <div id="dash-root">
 <style>
-.cx{font-family:var(--font-anthropic-sans);display:flex;flex-direction:column;gap:var(--cds-gap-xl)}
+.cx{--cx-accent:#E39B32;--cx-blue:#3F88C5;--cx-teal:#2A9D8F;--cx-up:#2A9D8F;--cx-down:#E2674A;--cx-ink:#121821;--cx-ink-2:#1B232E;--cx-ink-line:#2C3744;--cx-ink-fg:#F3EDE2;--cx-ink-muted:#A3ACB7;
+  font-family:var(--font-anthropic-sans);display:flex;flex-direction:column;gap:var(--cds-gap-xl);counter-reset:cxsec}
+.cx-hero{background:var(--cx-ink);color:var(--cx-ink-fg);border-radius:calc(var(--cds-radius) * 1.6);padding:clamp(20px,4vw,40px);display:flex;flex-direction:column;gap:var(--cds-gap-lg)}
 .cx-head{display:flex;flex-direction:column;gap:var(--cds-gap-sm)}
-.cx-title{font-family:var(--font-anthropic-serif);font-weight:400;font-size:var(--cds-font-size-title);margin:0}
-.cx-take{font-size:var(--cds-font-size-body);line-height:1.65;margin:0;max-width:60rem;min-height:1.65em}
-.cx .cx-take b{font-weight:600;font-variant-numeric:tabular-nums}
-.cx-sub{font-size:var(--cds-font-size-caption);color:var(--color-fg-muted);margin:0;min-height:1.4em}
-.cx-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,9.5rem),1fr));gap:var(--cds-gap-md)}
-.cx-tile{background:var(--color-panel);border:1px solid var(--color-border-line);border-radius:var(--cds-radius);padding:var(--cds-pad-md);display:flex;flex-direction:column;gap:var(--cds-gap-xs);min-height:6.5rem}
-.cx-tile.is-main{border-color:var(--color-fg-muted)}
+.cx-eyebrow{display:flex;align-items:center;gap:var(--cds-gap-sm);font-size:var(--cds-font-size-caption);letter-spacing:.12em;color:var(--cx-accent);text-transform:uppercase}
+.cx-eyebrow::after{content:"";flex:1;height:1px;background:var(--cx-ink-line)}
+.cx-title{font-family:var(--font-anthropic-serif);font-weight:400;font-size:calc(var(--cds-font-size-title) * 1.25);margin:0;color:var(--cx-ink-fg);line-height:1.15}
+.cx-take{font-size:var(--cds-font-size-body);line-height:1.7;margin:0;max-width:62rem;min-height:1.7em;color:#D3D8DE}
+.cx .cx-take b{font-weight:600;font-variant-numeric:tabular-nums;color:var(--cx-accent)}
+.cx-sub{font-size:var(--cds-font-size-caption);color:var(--cx-ink-muted);margin:0;min-height:1.4em}
+.cx-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,9.5rem),1fr));gap:var(--cds-gap-sm)}
+.cx-tile{background:var(--cx-ink-2);border:1px solid var(--cx-ink-line);border-radius:var(--cds-radius);padding:var(--cds-pad-md);display:flex;flex-direction:column;gap:var(--cds-gap-xs);min-height:6.5rem}
+.cx-tile.is-main{border-color:var(--cx-accent);box-shadow:inset 0 0 0 1px var(--cx-accent)}
 .cx-lab{font-size:var(--cds-font-size-caption);color:var(--color-fg-muted)}
-.cx-big{font-family:var(--font-anthropic-serif);font-weight:400;font-size:var(--cds-font-size-title);font-variant-numeric:tabular-nums;line-height:1.15;min-height:1.15em}
+.cx-tile .cx-lab{color:var(--cx-ink-muted)}
+.cx-big{font-family:var(--font-anthropic-serif);font-weight:400;font-size:var(--cds-font-size-title);font-variant-numeric:tabular-nums;line-height:1.15;min-height:1.15em;color:var(--cx-ink-fg)}
 .cx-chg{font-size:var(--cds-font-size-caption);font-variant-numeric:tabular-nums}
 .cx-up{color:var(--color-ok)}
 .cx-down{color:var(--color-bad)}
-.cx-sec{display:flex;flex-direction:column;gap:var(--cds-gap-md)}
-.cx-sec h2{font-size:var(--cds-font-size-heading);font-weight:var(--cds-font-weight-medium);margin:0}
+.cx-tile .cx-up{color:#5CCB9F}
+.cx-tile .cx-down{color:#F2896F}
+.cx-sec{display:flex;flex-direction:column;gap:var(--cds-gap-md);counter-increment:cxsec}
+.cx-sec h2{font-size:calc(var(--cds-font-size-heading) * 1.15);font-weight:var(--cds-font-weight-medium);margin:0;display:flex;align-items:baseline;gap:var(--cds-gap-sm)}
+.cx-sec h2::before{content:counter(cxsec, decimal-leading-zero);font-family:var(--font-anthropic-serif);font-weight:400;color:var(--cx-accent);font-variant-numeric:tabular-nums}
 .cx-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,22rem),1fr));gap:var(--cds-gap-md)}
-.cx-card{background:var(--color-panel);border:1px solid var(--color-border-line);border-radius:var(--cds-radius);padding:var(--cds-pad-lg);display:flex;flex-direction:column;gap:var(--cds-gap-sm);min-width:0}
+.cx-card{background:color-mix(in srgb, var(--cx-accent) 5%, var(--color-panel));border:1px solid color-mix(in srgb, var(--cx-accent) 18%, var(--color-border-line));border-radius:var(--cds-radius);padding:var(--cds-pad-lg);display:flex;flex-direction:column;gap:var(--cds-gap-sm);min-width:0}
 .cx-card h3{font-size:var(--cds-font-size-heading);font-weight:var(--cds-font-weight-medium);margin:0}
 .cx-note{font-size:var(--cds-font-size-caption);color:var(--color-fg-muted);margin:0;line-height:1.5}
 .cx .cx-note b{font-weight:600;color:var(--color-fg)}
@@ -83,7 +91,9 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg)}
 .cx-cardhead{display:flex;justify-content:space-between;align-items:center;gap:var(--cds-gap-md);flex-wrap:wrap}
 .cx-toggle{display:inline-flex;border:1px solid var(--color-border-line);border-radius:999px;padding:2px;gap:2px;flex:none}
 .cx-toggle button{font:inherit;font-size:var(--cds-font-size-caption);border:0;background:transparent;color:var(--color-fg-muted);padding:6px 16px;min-height:34px;border-radius:999px;cursor:pointer}
-.cx-toggle button[aria-pressed=true]{background:var(--color-fg);color:var(--color-panel)}
+.cx-toggle button[aria-pressed=true]{background:var(--cx-ink);color:var(--cx-ink-fg)}
+.cx-tbl tbody tr:hover td{background:color-mix(in srgb, var(--cx-accent) 7%, transparent)}
+.cx-pill{border-color:color-mix(in srgb, var(--cx-accent) 45%, var(--color-border-line))}
 .cx-toggle button:focus-visible{outline:2px solid var(--color-fg);outline-offset:2px}
 .cx-sigcards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,15rem),1fr));gap:var(--cds-gap-sm)}
 .cx-sgc{border:1px solid var(--color-border-line);border-radius:var(--cds-radius);padding:var(--cds-pad-md);display:flex;flex-direction:column;gap:var(--cds-gap-xs);min-height:6.5rem}
@@ -98,13 +108,15 @@ html,body{margin:0;background:var(--color-bg);color:var(--color-fg)}
 </style>
 
 <div class="cx">
-  <header class="cx-head" id="top">
-    <h1 class="cx-title" id="cx-h">CVX 能源因子看板</h1>
-    <p class="cx-take dash-skeleton" id="cx-take"></p>
-    <p class="cx-sub" id="cx-asof"></p>
-  </header>
-
-  <div class="cx-kpis" id="cx-kpis"></div>
+  <div class="cx-hero">
+    <header class="cx-head" id="top">
+      <div class="cx-eyebrow">Energy factor board · Daily</div>
+      <h1 class="cx-title" id="cx-h">CVX 能源因子看板</h1>
+      <p class="cx-take dash-skeleton" id="cx-take"></p>
+      <p class="cx-sub" id="cx-asof"></p>
+    </header>
+    <div class="cx-kpis" id="cx-kpis"></div>
+  </div>
 
   <section class="cx-sec" id="factors">
     <h2>因子信号</h2>
@@ -266,6 +278,7 @@ dash.calc('indexed', {
 });
 
 (function () {
+  const C = { a: '#E39B32', b: '#3F88C5', c: '#2A9D8F', up: '#2A9D8F', down: '#E2674A' };
   const num = (v) => (v === null || v === undefined || v === '' || isNaN(Number(v))) ? null : Number(v);
   const f2 = d3.format(',.2f');
   const money = (v) => v == null ? '—' : '$' + f2(v);
@@ -425,7 +438,7 @@ dash.calc('indexed', {
     const contracts = [...new Set(rows.filter((r) => r.date === last).map((r) => r.contract))].sort();
     const pick = (dt) => contracts.map((c) => rows.find((r) => r.date === dt && r.contract === c) || { contract: c, brent: null, wti: null });
     const cur = pick(last), old = prev ? pick(prev) : [];
-    const ser = [{ k: 'brent', name: 'Brent', c: dash.colors[0] }, { k: 'wti', name: 'WTI', c: dash.colors[1] }];
+    const ser = [{ k: 'brent', name: 'Brent', c: C.a }, { k: 'wti', name: 'WTI', c: C.b }];
     const { svg, W, H } = svgIn(el, 240);
     const vals = [...cur, ...old].flatMap((r) => [r.brent, r.wti]).filter((v) => v != null);
     const y = d3.scaleLinear([d3.min(vals) - 2, d3.max(vals) + 2], [H - 30, 14]).nice();
@@ -499,7 +512,7 @@ dash.calc('indexed', {
     const fmt = (v) => d3.format(',')(v) + ' 万桶/日';
     hbar(el, [
       { label: '战前', value: num(t.hormuz_prewar), color: 'var(--cds-chart-muted)' },
-      { label: '当前', value: num(t.hormuz), color: dash.colors[0] }
+      { label: '当前', value: num(t.hormuz), color: C.a }
     ], fmt, '运输量');
   }
 
@@ -513,7 +526,7 @@ dash.calc('indexed', {
     const fmt = (v) => signed(v * 100, 0) + ' 万桶';
     const mk = (label, chg, inv) => {
       const v = num(chg);
-      return { label, value: v, color: v < 0 ? dash.colors[1] : dash.colors[0], tip: [[v < 0 ? dash.colors[1] : dash.colors[0], '周变化', v == null ? '—' : fmt(v)], [null, '库存', lvl(num(inv))]] };
+      return { label, value: v, color: v < 0 ? C.down : C.up, tip: [[v < 0 ? C.down : C.up, '周变化', v == null ? '—' : fmt(v)], [null, '库存', lvl(num(inv))]] };
     };
     hbar(el, [mk('商业原油', t.crude_inv_chg, t.crude_inv), mk('汽油', t.gasoline_inv_chg, t.gasoline_inv), mk('馏分油', t.distillate_inv_chg, t.distillate_inv)], fmt, '周变化');
   }
@@ -526,8 +539,8 @@ dash.calc('indexed', {
     const cur = rows.filter((r) => String(r.date).slice(0, 10) === last);
     hbar(el, cur.map((r) => {
       const v = num(r.chg);
-      return { label: r.ticker + ' · ' + r.group, value: v, color: v < 0 ? dash.colors[1] : dash.colors[0],
-        tip: [[v == null ? null : (v < 0 ? dash.colors[1] : dash.colors[0]), '涨跌', v == null ? '未核实' : pct(v)], [null, '收盘', money(num(r.close))]] };
+      return { label: r.ticker + ' · ' + r.group, value: v, color: v < 0 ? C.down : C.up,
+        tip: [[v == null ? null : (v < 0 ? C.down : C.up), '涨跌', v == null ? '未核实' : pct(v)], [null, '收盘', money(num(r.close))]] };
     }), pct, '涨跌');
   }
 
@@ -540,7 +553,7 @@ dash.calc('indexed', {
     const rows = got[0].map((r) => ({ date: String(r.date), session: String(r.session || ''), d: new Date(String(r.date)), brent: num(r.brent), cvx: num(r.cvx), xle: num(r.xle) }));
     const tickLab = (r) => md(r.date) + (r.session ? ' ' + r.session : '');
     if (rows.length < 2) note.textContent = '目前只有一期记录；每天追加后会形成走势，偏离 100 越多说明谁跑赢。';
-    const ser = [{ k: 'brent', name: 'Brent', c: dash.colors[0] }, { k: 'cvx', name: 'CVX', c: dash.colors[1] }, { k: 'xle', name: 'XLE', c: dash.colors[2] }];
+    const ser = [{ k: 'brent', name: 'Brent', c: C.a }, { k: 'cvx', name: 'CVX', c: C.b }, { k: 'xle', name: 'XLE', c: C.c }];
     const { svg, W, H } = svgIn(el, 240);
     const vals = rows.flatMap((r) => ser.map((s) => r[s.k])).filter((v) => v != null);
     const y = d3.scaleLinear([Math.min(98, d3.min(vals) - 1), Math.max(102, d3.max(vals) + 1)], [H - 30, 14]).nice();
@@ -605,14 +618,14 @@ dash.calc('indexed', {
         svg.append('line').attr('x1', x(r.prior)).attr('x2', x(r.target)).attr('y1', cy).attr('y2', cy).attr('stroke', 'var(--cds-chart-muted)').attr('stroke-width', 2);
         svg.append('circle').attr('cx', x(r.prior)).attr('cy', cy).attr('r', 5).attr('fill', 'var(--color-panel)').attr('stroke', 'var(--cds-chart-muted)').attr('stroke-width', 2);
       }
-      svg.append('circle').attr('cx', x(r.target)).attr('cy', cy).attr('r', 6).attr('fill', dash.colors[0]);
+      svg.append('circle').attr('cx', x(r.target)).attr('cy', cy).attr('r', 6).attr('fill', C.a);
       svg.append('text').attr('class', 'cx-lbl').attr('x', x(r.target) + 10).attr('y', cy).attr('dy', '0.32em').text('$' + r.target);
     });
     const tp = tip(el);
     svg.append('g').selectAll('rect').data(rows).join('rect').attr('x', 0).attr('width', W).attr('y', (r, i) => yb(i) - 4).attr('height', yb.bandwidth() + 8).attr('fill', 'transparent')
       .on('mousemove', (ev, r) => {
         const [mx, my] = d3.pointer(ev, el);
-        const ln = [[dash.colors[0], '目标价', money(r.target)]];
+        const ln = [[C.a, '目标价', money(r.target)]];
         if (r.prior != null) ln.push([null, '调整前', money(r.prior)]);
         ln.push([null, '相对前收', signed((r.target / close - 1) * 100, 1) + '%']);
         tp.show(r.firm + ' · ' + md(r.date), ln, mx, my);
@@ -636,7 +649,7 @@ dash.calc('indexed', {
     const ml = d3.max(rows, (r) => textW(svg, r.case)) + 14;
     const x = d3.scaleLinear([dLo, dHi], [ml, W - 12]);
     const yb = d3.scaleBand(rows.map((r, i) => i), [26, H - 24]).padding(0.3);
-    const colorOf = (c) => c === 'Bull' ? dash.colors[0] : c === 'Bear' ? dash.colors[1] : dash.colors[2];
+    const colorOf = (c) => c === 'Bull' ? C.up : c === 'Bear' ? C.down : C.a;
     const xt = x.ticks(Math.max(3, Math.floor((W - ml) / 60)));
     svg.append('g').selectAll('line').data(xt).join('line').attr('x1', (v) => x(v)).attr('x2', (v) => x(v)).attr('y1', 22).attr('y2', H - 22).attr('stroke', 'var(--cds-chart-grid)');
     svg.append('g').selectAll('text').data(xt).join('text').attr('class', 'cx-tick').attr('x', (v) => x(v)).attr('y', H - 6).attr('text-anchor', 'middle').text((v) => '$' + v);
